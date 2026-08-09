@@ -1,24 +1,21 @@
 server:
   port: 8080
-
 spring:
   application:
     name: schemagenie-backend
-
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/schemagenie}
       auto-index-creation: true
-
 jwt:
   secret: ${JWT_SECRET}
   expiration-ms: 86400000
-
+allowed:
+  origins: ${ALLOWED_ORIGINS:http://localhost:3000,https://schemagenie-db-architect-system.onrender.com}
 gemini:
   api-key: ${GEMINI_API_KEY}
   model: gemini-3.5-flash
   base-url: https://generativelanguage.googleapis.com/v1beta/models
-
 logging:
   level:
     com.schemagenie: INFO
