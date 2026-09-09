@@ -63,22 +63,6 @@ backend/out/
 backend/logs/
 backend/*.log
 
-
-# ==========================================
-# SPRING BOOT CONFIGURATION / SECRETS
-# ==========================================
-
-# Ignore Spring Boot configuration files
-backend/src/main/resources/*.properties
-backend/src/main/resources/*.yml
-backend/src/main/resources/*.yaml
-
-# Keep example configuration files
-!backend/src/main/resources/application-example.properties
-!backend/src/main/resources/application-example.yml
-!backend/src/main/resources/application-example.yaml
-
-
 # ==========================================
 # REACT / NODE FRONTEND
 # ==========================================
