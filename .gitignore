@@ -1,0 +1,207 @@
+# ==========================================
+# GENERAL
+# ==========================================
+
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+
+
+# ==========================================
+# ENVIRONMENT / SECRETS
+# ==========================================
+
+.env
+.env.*
+!.env.example
+
+# Secret / credential files
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+
+# ==========================================
+# IDEs
+# ==========================================
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+
+# ==========================================
+# SPRING BOOT / JAVA BACKEND
+# ==========================================
+
+# Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+backend/.gradle/
+backend/build/
+backend/bin/
+backend/out/
+
+# Java compiled files
+*.class
+*.jar
+*.war
+*.ear
+
+# Spring Boot generated files
+backend/logs/
+backend/*.log
+
+
+# ==========================================
+# SPRING BOOT CONFIGURATION / SECRETS
+# ==========================================
+
+# Ignore Spring Boot configuration files
+backend/src/main/resources/*.properties
+backend/src/main/resources/*.yml
+backend/src/main/resources/*.yaml
+
+# Keep example configuration files
+!backend/src/main/resources/application-example.properties
+!backend/src/main/resources/application-example.yml
+!backend/src/main/resources/application-example.yaml
+
+
+# ==========================================
+# REACT / NODE FRONTEND
+# ==========================================
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# Vite
+frontend/.vite/
+
+# React cache
+frontend/.cache/
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+
+
+# ==========================================
+# FRONTEND ENVIRONMENT FILES
+# ==========================================
+
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Keep example environment
+!frontend/.env.example
+
+
+# ==========================================
+# TEST / COVERAGE
+# ==========================================
+
+coverage/
+frontend/coverage/
+.nyc_output/
+
+
+# ==========================================
+# DATABASE / LOCAL DATA
+# ==========================================
+
+*.sqlite
+*.sqlite3
+*.db
+
+# MongoDB local files
+mongodb-data/
+data/db/
+
+
+# ==========================================
+# UPLOADS / GENERATED FILES
+# ==========================================
+
+uploads/
+backend/uploads/
+frontend/uploads/
+
+
+# ==========================================
+# PYTHON
+# ==========================================
+
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+env/
+
+
+# ==========================================
+# DOCKER
+# ==========================================
+
+docker-compose.override.yml
+
+
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
+
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+
+
+# ==========================================
+# BACKUP FILES
+# ==========================================
+
+*.backup
+*.old
+
+
+# ==========================================
+# OS FILES
+# ==========================================
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
