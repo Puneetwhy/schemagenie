@@ -50,10 +50,13 @@ public class LlmService {
             - REFERENCE when data is large, independently updated, or independently queried.
             - MANY_TO_MANY uses REFERENCE on both sides unless one side is small and bounded.
 
-            Every relationship target must exist as its own collection entry. Do not invent fields
-            the user did not imply. Keep naming consistent across the schema. For every field and
-            every relationship, write a short, clear "reasoning" explaining WHY that design choice
-            was made -- this will be shown to the user as an explanation.
+            CRITICAL: every relationship "target" value must be EXACTLY IDENTICAL (same spelling,
+            same casing, same singular/plural form) to the "name" of one of the collections you define
+            in this same JSON response. Double-check every target against your own collection names
+            before responding. Do not invent fields the user did not imply. Keep naming consistent
+            across the schema. For every field and every relationship, write a short, clear "reasoning"
+            explaining WHY that design choice was made -- this will be shown to the user as an
+            explanation.
             """;
 
     private static final String SQL_SYSTEM_PROMPT_TEMPLATE = """
@@ -85,26 +88,38 @@ public class LlmService {
             - Use the field types listed above regardless of target database; %s-specific column types
               are handled separately by the migration generator.
 
-            Every relationship target must exist as its own table entry. Do not invent fields the
-            user did not imply. Keep naming consistent across the schema. For every field and every
-            relationship, write a short, clear "reasoning" explaining WHY that design choice was made
-            -- this will be shown to the user as an explanation.
+            CRITICAL: every relationship "target" value must be EXACTLY IDENTICAL (same spelling,
+            same casing, same singular/plural form) to the "name" of one of the tables you define in
+            this same JSON response. Double-check every target against your own table names before
+            responding. Do not invent fields the user did not imply. Keep naming consistent across the
+            schema. For every field and every relationship, write a short, clear "reasoning" explaining
+            WHY that design choice was made -- this will be shown to the user as an explanation.
             """;
 
-    private static final String RETRY_INSTRUCTION =
+    private static final String RETRY_INSTRUCTION_INVALID_JSON =
             "\n\nYour previous response was not valid JSON. Return ONLY the JSON object, nothing else.";
+
+    private static final String RETRY_INSTRUCTION_BAD_RELATIONSHIP =
+            "\n\nYour previous response had a relationship whose \"target\" did not exactly match "
+                    + "the name of any collection/table you defined (check spelling, casing, and "
+                    + "singular/plural form). Fix every mismatched target so it exactly equals an "
+                    + "existing collection/table name, and return ONLY the corrected JSON object, "
+                    + "nothing else.";
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SchemaValidationService validationService;
     private final String apiKey;
     private final String model;
 
     public LlmService(@Value("${groq.api-key}") String apiKey,
                       @Value("${groq.model}") String model,
-                      @Value("${groq.base-url}") String baseUrl) {
+                      @Value("${groq.base-url}") String baseUrl,
+                      SchemaValidationService validationService) {
         this.apiKey = apiKey;
         this.model = model;
         this.webClient = WebClient.builder().baseUrl(baseUrl).build();
+        this.validationService = validationService;
     }
 
     public record LlmSchemaResult(String rawJson, SchemaGenerationResult schema) {}
@@ -114,16 +129,25 @@ public class LlmService {
 
         String rawResponse = callGroq(systemPrompt, description);
         try {
-            return parse(rawResponse, databaseType);
+            return parseAndValidate(rawResponse, databaseType);
         } catch (Exception firstFailure) {
-            String retryResponse = callGroq(systemPrompt, description + RETRY_INSTRUCTION);
+            String retryInstruction = firstFailure instanceof com.schemagenie.exception.SchemaValidationException
+                    ? RETRY_INSTRUCTION_BAD_RELATIONSHIP
+                    : RETRY_INSTRUCTION_INVALID_JSON;
+            String retryResponse = callGroq(systemPrompt, description + retryInstruction);
             try {
-                return parse(retryResponse, databaseType);
+                return parseAndValidate(retryResponse, databaseType);
             } catch (Exception secondFailure) {
                 throw new SchemaGenerationException(
                         "Couldn't understand that description, try being more specific.", secondFailure);
             }
         }
+    }
+
+    private LlmSchemaResult parseAndValidate(String rawResponse, DatabaseType databaseType) throws Exception {
+        LlmSchemaResult result = parse(rawResponse, databaseType);
+        validationService.validate(result.schema());
+        return result;
     }
 
     private String buildSystemPrompt(DatabaseType databaseType) {
