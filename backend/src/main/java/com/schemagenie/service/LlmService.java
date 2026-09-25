@@ -13,13 +13,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Calls the Google Gemini API to generate a database schema from a
- * plain-English description. Supports MongoDB (document schema) and a
- * family of relational databases (PostgreSQL, MySQL, SQLite) that all
- * share the same JSON contract -- the actual dialect-specific SQL is
- * produced later by LiquibaseGeneratorService, which already abstracts
- * dialect differences, so the LLM only needs to know it's designing a
- * normalized relational schema in general.
+ * Calls the Groq API (OpenAI-compatible chat completions endpoint) to
+ * generate a database schema from a plain-English description. Supports
+ * MongoDB (document schema) and a family of relational databases
+ * (PostgreSQL, MySQL, SQLite) that all share the same JSON contract -- the
+ * actual dialect-specific SQL is produced later by LiquibaseGeneratorService,
+ * which already abstracts dialect differences, so the LLM only needs to
+ * know it's designing a normalized relational schema in general.
  */
 @Service
 public class LlmService {
@@ -99,9 +99,9 @@ public class LlmService {
     private final String apiKey;
     private final String model;
 
-    public LlmService(@Value("${gemini.api-key}") String apiKey,
-                      @Value("${gemini.model}") String model,
-                      @Value("${gemini.base-url}") String baseUrl) {
+    public LlmService(@Value("${groq.api-key}") String apiKey,
+                      @Value("${groq.model}") String model,
+                      @Value("${groq.base-url}") String baseUrl) {
         this.apiKey = apiKey;
         this.model = model;
         this.webClient = WebClient.builder().baseUrl(baseUrl).build();
@@ -112,11 +112,11 @@ public class LlmService {
     public LlmSchemaResult generateSchema(String description, DatabaseType databaseType) {
         String systemPrompt = buildSystemPrompt(databaseType);
 
-        String rawResponse = callGemini(systemPrompt, description);
+        String rawResponse = callGroq(systemPrompt, description);
         try {
             return parse(rawResponse, databaseType);
         } catch (Exception firstFailure) {
-            String retryResponse = callGemini(systemPrompt, description + RETRY_INSTRUCTION);
+            String retryResponse = callGroq(systemPrompt, description + RETRY_INSTRUCTION);
             try {
                 return parse(retryResponse, databaseType);
             } catch (Exception secondFailure) {
@@ -167,50 +167,47 @@ public class LlmService {
         return trimmed;
     }
 
-    private String callGemini(String systemPrompt, String userMessage) {
+    /**
+     * Calls Groq's OpenAI-compatible chat completions endpoint:
+     * POST {base-url}/chat/completions
+     * Auth via "Authorization: Bearer {apiKey}" header (not a query param,
+     * unlike the old Gemini "?key=" style).
+     */
+    private String callGroq(String systemPrompt, String userMessage) {
         if (apiKey == null || apiKey.isBlank()) {
-            throw new SchemaGenerationException("GEMINI_API_KEY is not configured on the server.");
+            throw new SchemaGenerationException("GROQ_API_KEY is not configured on the server.");
         }
 
         Map<String, Object> body = Map.of(
-                "system_instruction", Map.of(
-                        "parts", List.of(Map.of("text", systemPrompt))
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userMessage)
                 ),
-                "contents", List.of(Map.of(
-                        "role", "user",
-                        "parts", List.of(Map.of("text", userMessage))
-                )),
-                "generationConfig", Map.of(
-                        "responseMimeType", "application/json",
-                        "maxOutputTokens", 4096
-                )
+                "response_format", Map.of("type", "json_object"),
+                "max_tokens", 4096
         );
 
         try {
             JsonNode response = webClient.post()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/{model}:generateContent")
-                            .queryParam("key", apiKey)
-                            .build(model))
+                    .uri("/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
 
-            JsonNode candidates = response == null ? null : response.path("candidates");
-            if (candidates == null || !candidates.isArray() || candidates.isEmpty()) {
+            JsonNode choices = response == null ? null : response.path("choices");
+            if (choices == null || !choices.isArray() || choices.isEmpty()) {
                 throw new SchemaGenerationException("Empty response from LLM.");
             }
 
-            JsonNode parts = candidates.get(0).path("content").path("parts");
-            StringBuilder text = new StringBuilder();
-            for (JsonNode part : parts) {
-                if (part.has("text")) {
-                    text.append(part.get("text").asText());
-                }
+            JsonNode messageContent = choices.get(0).path("message").path("content");
+            if (messageContent.isMissingNode() || messageContent.asText().isBlank()) {
+                throw new SchemaGenerationException("Empty response from LLM.");
             }
-            return text.toString();
+            return messageContent.asText();
         } catch (SchemaGenerationException e) {
             throw e;
         } catch (Exception e) {
